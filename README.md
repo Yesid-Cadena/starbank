@@ -4,8 +4,7 @@ StarBank es un sistema bancario digital ficticio desarrollado como proyecto acad
 de Programación Avanzada de Ingeniería de Sistemas de la Universidad Distrital
 Francisco José de Caldas.
 
-La aplicación está orientada a gestionar clientes, cuentas bancarias, operaciones
-financieras simuladas y solicitudes de atención, con funciones para clientes y
-administradores. Se desarrolla progresivamente con Java 21, Maven y arquitectura MVC;
-actualmente permite registrar clientes, administrar cuentas y simular depósitos,
-retiros y transferencias con historial y almacenamiento temporal en memoria.
+Aplicación Java 21 con Maven y arquitectura MVC. En memoria implementa clientes,
+cuentas, transacciones, autenticación por sesión, autorización por rol/propiedad,
+auditoría básica y política monetaria COP con hasta dos decimales (sin redondeo
+implícito). Incluye demo en `com.starbank.Main` y menú básico con `--menu`.

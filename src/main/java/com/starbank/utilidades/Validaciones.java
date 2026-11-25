@@ -9,6 +9,9 @@ public final class Validaciones {
         if (monto.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ValidacionException("El monto debe ser mayor que cero.");
         }
+        if (monto.stripTrailingZeros().scale() > 2) {
+            throw new ValidacionException("El monto debe tener como máximo dos decimales.");
+        }
         return monto;
     }
 

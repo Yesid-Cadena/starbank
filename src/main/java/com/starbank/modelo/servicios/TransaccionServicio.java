@@ -1,12 +1,17 @@
 package com.starbank.modelo.servicios;
 
+import com.starbank.excepciones.AccesoDenegadoException;
 import com.starbank.excepciones.OperacionRechazadaException;
 import com.starbank.excepciones.RegistroNoEncontradoException;
 import com.starbank.excepciones.ValidacionException;
+import com.starbank.modelo.entidades.Cliente;
+import com.starbank.modelo.entidades.Sesion;
 import com.starbank.modelo.entidades.Cuenta;
 import com.starbank.modelo.entidades.Transaccion;
 import com.starbank.modelo.entidades.Transferencia;
+import com.starbank.modelo.entidades.Usuario;
 import com.starbank.modelo.enumeraciones.EstadoTransaccion;
+import com.starbank.modelo.enumeraciones.Rol;
 import com.starbank.modelo.enumeraciones.TipoTransaccion;
 import com.starbank.modelo.repositorios.CuentaRepositorio;
 import com.starbank.modelo.repositorios.TransaccionRepositorio;
@@ -25,25 +30,87 @@ public final class TransaccionServicio {
     private final TransaccionRepositorio transacciones;
     private final CuentaServicio cuentaServicio;
     private final UnidadTrabajo unidadTrabajo;
+    private final AutorizacionServicio autorizacion;
 
     public TransaccionServicio(CuentaRepositorio cuentas, TransaccionRepositorio transacciones,
                                CuentaServicio cuentaServicio, UnidadTrabajo unidadTrabajo) {
+        this(cuentas, transacciones, cuentaServicio, unidadTrabajo, null);
+    }
+
+    public TransaccionServicio(CuentaRepositorio cuentas, TransaccionRepositorio transacciones,
+                               CuentaServicio cuentaServicio, UnidadTrabajo unidadTrabajo,
+                               AutorizacionServicio autorizacion) {
         this.cuentas = Validaciones.obligatorio(cuentas, "El repositorio de cuentas");
         this.transacciones = Validaciones.obligatorio(transacciones, "El repositorio de transacciones");
         this.cuentaServicio = Validaciones.obligatorio(cuentaServicio, "El servicio de cuentas");
         this.unidadTrabajo = Validaciones.obligatorio(unidadTrabajo, "La unidad de trabajo");
+        this.autorizacion = autorizacion;
     }
 
-    // La identidad deberá proceder de la sesión autenticada en la siguiente fase.
-    public Transaccion depositar(String cliente, String numero, BigDecimal monto, String descripcion) {
+    public Transaccion depositar(Sesion sesion, String numero, BigDecimal monto, String descripcion) {
+        Cliente cliente = exigirAutorizacion().exigirCliente(sesion.obtenerIdentificador());
+        exigirAutorizacion().exigirCuentaPropia(sesion.obtenerIdentificador(), numero);
+        return depositarInterno(cliente.obtenerIdentificacion(), numero, monto, descripcion);
+    }
+
+    public Transaccion retirar(Sesion sesion, String numero, BigDecimal monto, String descripcion) {
+        Cliente cliente = exigirAutorizacion().exigirCliente(sesion.obtenerIdentificador());
+        exigirAutorizacion().exigirCuentaPropia(sesion.obtenerIdentificador(), numero);
+        return retirarInterno(cliente.obtenerIdentificacion(), numero, monto, descripcion);
+    }
+
+    public Transaccion transferir(Sesion sesion, String origen, String destino, BigDecimal monto, String descripcion) {
+        Cliente cliente = exigirAutorizacion().exigirCliente(sesion.obtenerIdentificador());
+        exigirAutorizacion().exigirCuentaPropia(sesion.obtenerIdentificador(), origen);
+        return transferirInterno(cliente.obtenerIdentificacion(), origen, destino, monto, descripcion);
+    }
+
+    public Transaccion consultar(Sesion sesion, String identificador) {
+        exigirAutorizacion().exigirAdministrador(sesion.obtenerIdentificador());
+        return consultarInterno(identificador);
+    }
+
+    public List<Transaccion> historialCuenta(Sesion sesion, String numero) {
+        return historialCuenta(sesion, numero, null, null, null);
+    }
+
+    public List<Transaccion> historialCuenta(Sesion sesion, String numero, TipoTransaccion tipo,
+                                            LocalDateTime desde, LocalDateTime hasta) {
+        Usuario usuario = exigirAutorizacion().exigirUsuario(sesion.obtenerIdentificador());
+        if (usuario.obtenerRol() == Rol.ADMINISTRADOR) {
+            return unidadTrabajo.ejecutar(() -> filtrar(transacciones.buscarPorCuenta(
+                    Validaciones.texto(numero, "El número de cuenta")), tipo, desde, hasta));
+        }
+        if (usuario instanceof Cliente cliente) {
+            return historialCuentaInterno(cliente.obtenerIdentificacion(), numero, tipo, desde, hasta);
+        }
+        throw new AccesoDenegadoException("Acceso denegado.");
+    }
+
+    public List<Transaccion> historialCliente(Sesion sesion) {
+        return historialCliente(sesion, null, null, null);
+    }
+
+    public List<Transaccion> historialCliente(Sesion sesion, TipoTransaccion tipo,
+                                             LocalDateTime desde, LocalDateTime hasta) {
+        Cliente cliente = exigirAutorizacion().exigirCliente(sesion.obtenerIdentificador());
+        return historialClienteInterno(cliente.obtenerIdentificacion(), tipo, desde, hasta);
+    }
+
+    // Métodos internos para compatibilidad de pruebas y composición en el mismo paquete.
+    Transaccion depositar(String cliente, String numero, BigDecimal monto, String descripcion) { return depositarInterno(cliente, numero, monto, descripcion); }
+    Transaccion retirar(String cliente, String numero, BigDecimal monto, String descripcion) { return retirarInterno(cliente, numero, monto, descripcion); }
+    Transaccion transferir(String cliente, String origen, String destino, BigDecimal monto, String descripcion) { return transferirInterno(cliente, origen, destino, monto, descripcion); }
+
+    Transaccion depositarInterno(String cliente, String numero, BigDecimal monto, String descripcion) {
         return operar(cliente, null, numero, monto, descripcion, TipoTransaccion.DEPOSITO);
     }
 
-    public Transaccion retirar(String cliente, String numero, BigDecimal monto, String descripcion) {
+    Transaccion retirarInterno(String cliente, String numero, BigDecimal monto, String descripcion) {
         return operar(cliente, numero, null, monto, descripcion, TipoTransaccion.RETIRO);
     }
 
-    public Transaccion transferir(String cliente, String origen, String destino,
+    Transaccion transferirInterno(String cliente, String origen, String destino,
                                   BigDecimal monto, String descripcion) {
         Validaciones.texto(origen, "La cuenta de origen");
         Validaciones.texto(destino, "La cuenta de destino");
@@ -89,22 +156,26 @@ public final class TransaccionServicio {
                 if (nuevoOrigen != null) { cuentas.actualizar(nuevoOrigen); }
                 if (nuevoDestino != null) { cuentas.actualizar(nuevoDestino); }
             }
-            // Los fallos de persistencia salen de la unidad de trabajo y revierten todo.
             transacciones.guardar(transaccion);
             return transaccion;
         });
     }
 
-    public Transaccion consultar(String identificador) {
+    Transaccion consultar(String identificador) { return consultarInterno(identificador); }
+
+    Transaccion consultarInterno(String identificador) {
         return transacciones.buscarPorIdentificador(identificador)
                 .orElseThrow(() -> new RegistroNoEncontradoException("La transacción no existe."));
     }
 
-    public List<Transaccion> historialCuenta(String cliente, String numero) {
-        return historialCuenta(cliente, numero, null, null, null);
+    List<Transaccion> historialCuenta(String cliente, String numero) { return historialCuentaInterno(cliente, numero); }
+    List<Transaccion> historialCuenta(String cliente, String numero, TipoTransaccion tipo, LocalDateTime desde, LocalDateTime hasta) { return historialCuentaInterno(cliente, numero, tipo, desde, hasta); }
+
+    List<Transaccion> historialCuentaInterno(String cliente, String numero) {
+        return historialCuentaInterno(cliente, numero, null, null, null);
     }
 
-    public List<Transaccion> historialCuenta(String cliente, String numero, TipoTransaccion tipo,
+    List<Transaccion> historialCuentaInterno(String cliente, String numero, TipoTransaccion tipo,
                                             LocalDateTime desde, LocalDateTime hasta) {
         return unidadTrabajo.ejecutar(() -> {
             Cuenta cuenta = cuentaServicio.consultarPropia(cliente, numero);
@@ -112,14 +183,17 @@ public final class TransaccionServicio {
         });
     }
 
-    public List<Transaccion> historialCliente(String cliente) {
-        return historialCliente(cliente, null, null, null);
+    List<Transaccion> historialCliente(String cliente) { return historialClienteInterno(cliente); }
+    List<Transaccion> historialCliente(String cliente, TipoTransaccion tipo, LocalDateTime desde, LocalDateTime hasta) { return historialClienteInterno(cliente, tipo, desde, hasta); }
+
+    List<Transaccion> historialClienteInterno(String cliente) {
+        return historialClienteInterno(cliente, null, null, null);
     }
 
-    public List<Transaccion> historialCliente(String cliente, TipoTransaccion tipo,
+    List<Transaccion> historialClienteInterno(String cliente, TipoTransaccion tipo,
                                              LocalDateTime desde, LocalDateTime hasta) {
         return unidadTrabajo.ejecutar(() -> {
-            Set<String> numeros = cuentaServicio.consultarPorCliente(cliente).stream()
+            Set<String> numeros = cuentaServicio.consultarPorClienteInterno(cliente).stream()
                     .map(Cuenta::obtenerNumeroCuenta).collect(Collectors.toSet());
             List<Transaccion> historial = transacciones.listar().stream()
                     .filter(transaccion -> numeros.stream().anyMatch(transaccion::involucra)).toList();
@@ -137,5 +211,9 @@ public final class TransaccionServicio {
                 .filter(transaccion -> hasta == null || !transaccion.obtenerFechaHora().isAfter(hasta))
                 .sorted(Comparator.comparing(Transaccion::obtenerFechaHora)
                         .thenComparing(Transaccion::obtenerIdentificador)).toList();
+    }
+
+    private AutorizacionServicio exigirAutorizacion() {
+        return Validaciones.obligatorio(autorizacion, "El servicio de autorización");
     }
 }

@@ -10,7 +10,7 @@ public abstract class Usuario {
     private String nombre;
     private String correo;
     private String telefono;
-    private final ClaveProtegida clave;
+    private ClaveProtegida clave;
     private final LocalDateTime fechaRegistro;
     private EstadoUsuario estado;
 
@@ -62,5 +62,13 @@ public abstract class Usuario {
     /** Comparación criptográfica local; no crea sesiones ni concede permisos. */
     public final boolean verificarClave(char[] candidata) {
         return clave.coincide(candidata);
+    }
+
+    /** Cambia la clave verificando la actual; no almacena texto plano. */
+    public final void cambiarClave(char[] claveActual, char[] claveNueva) {
+        if (!clave.coincide(claveActual)) {
+            throw new com.starbank.excepciones.ValidacionException("La contraseña actual no es correcta.");
+        }
+        this.clave = ClaveProtegida.crear(claveNueva);
     }
 }

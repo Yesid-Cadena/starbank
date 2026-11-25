@@ -65,7 +65,7 @@ class ClienteServicioTest extends BancoPrueba {
 
     @Test
     void permiteMantenerCorreoPropioYExcluyeAdministradoresDelListado() {
-        usuarios.guardar(new Administrador("admin", "Admin", "admin@example.com", "3000000005", CLAVE));
+        // BancoPrueba ya crea un administrador interno.
         clientes.actualizarInformacion("001", "Ana", "ANA@example.com", "3000000001");
         assertEquals(2, clientes.listarClientes().size());
         assertThrows(RegistroNoEncontradoException.class, () -> clientes.consultar("admin"));
