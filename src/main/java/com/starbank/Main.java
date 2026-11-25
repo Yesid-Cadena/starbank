@@ -12,6 +12,7 @@ import com.starbank.modelo.entidades.RegistroActividad;
 import com.starbank.modelo.entidades.Sesion;
 import com.starbank.modelo.entidades.Transaccion;
 import com.starbank.modelo.enumeraciones.TipoCuenta;
+import com.starbank.vista.ventanas.VentanaPruebas;
 import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.util.Arrays;
@@ -28,7 +29,8 @@ public final class Main {
         boolean initDb = argumentos.contains("--init-db");
         boolean crearAdmin = argumentos.contains("--crear-admin");
         boolean menu = argumentos.contains("--menu");
-        boolean demo = argumentos.contains("--demo") || (!postgres && !initDb && !crearAdmin && !menu);
+        boolean gui = argumentos.contains("--gui");
+        boolean demo = argumentos.contains("--demo") || (!postgres && !initDb && !crearAdmin && !menu && !gui);
 
         if (postgres) {
             ConfiguracionPostgres config = crearConfiguracionPostgres();
@@ -39,15 +41,14 @@ public final class Main {
             if (crearAdmin) {
                 crearAdministradorInteractivo(config);
             }
-            if (menu) {
-                ejecutarMenuSimple(config);
-            } else if (demo) {
-                System.out.println("Modo PostgreSQL: no se insertan datos ficticios automáticamente. Use --menu, --init-db o --crear-admin.");
-            }
+            if (gui) { javax.swing.SwingUtilities.invokeLater(() -> new VentanaPruebas(config).setVisible(true)); return; }
+            if (menu) { ejecutarMenuSimple(config); }
+            else if (demo) { System.out.println("Modo PostgreSQL: no se insertan datos ficticios automáticamente. Use --menu, --gui, --init-db o --crear-admin."); }
             return;
         }
 
         ConfiguracionMemoria config = new ConfiguracionMemoria();
+        if (gui) { javax.swing.SwingUtilities.invokeLater(() -> new VentanaPruebas(config).setVisible(true)); return; }
         if (demo) ejecutarDemo(config);
         if (menu) ejecutarMenuSimple(config);
     }
