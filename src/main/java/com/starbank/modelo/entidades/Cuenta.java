@@ -17,15 +17,20 @@ public final class Cuenta {
     private EstadoCuenta estado;
 
     public Cuenta(String numeroCuenta, TipoCuenta tipoCuenta, Cliente cliente) {
+        this(numeroCuenta, tipoCuenta, cliente, LocalDateTime.now(), new BigDecimal("0.00"), EstadoCuenta.ACTIVA);
+    }
+
+    public Cuenta(String numeroCuenta, TipoCuenta tipoCuenta, Cliente cliente,
+                  LocalDateTime fechaCreacion, BigDecimal saldo, EstadoCuenta estado) {
         this.numeroCuenta = Validaciones.texto(numeroCuenta, "El número de cuenta");
         if (!this.numeroCuenta.matches("[0-9]+")) {
             throw new ValidacionException("El número de cuenta debe contener solo dígitos.");
         }
         this.tipoCuenta = Validaciones.obligatorio(tipoCuenta, "El tipo de cuenta");
         this.cliente = Validaciones.obligatorio(cliente, "El cliente titular");
-        fechaCreacion = LocalDateTime.now();
-        saldo = new BigDecimal("0.00");
-        estado = EstadoCuenta.ACTIVA;
+        this.fechaCreacion = Validaciones.obligatorio(fechaCreacion, "La fecha de creación");
+        this.saldo = Validaciones.montoNoNegativo(saldo);
+        this.estado = Validaciones.obligatorio(estado, "El estado de la cuenta");
     }
 
     public void actualizarEstado(EstadoCuenta estado) {

@@ -18,7 +18,7 @@ import com.starbank.modelo.servicios.TransaccionServicio;
 import java.time.Clock;
 
 /** Compone servicios en memoria. La creación de administradores es interna, no pública. */
-public final class ConfiguracionMemoria {
+public final class ConfiguracionMemoria implements ConfiguracionServicios {
     private final AlmacenMemoria almacen;
     private final UsuarioRepositorioMemoria usuarios;
     private final CuentaRepositorioMemoria repositorioCuentas;

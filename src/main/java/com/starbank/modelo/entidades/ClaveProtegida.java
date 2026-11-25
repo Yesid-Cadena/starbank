@@ -11,15 +11,35 @@ import javax.crypto.spec.PBEKeySpec;
 
 /** Valor inmutable que conserva únicamente sal y derivación, nunca la clave original. */
 public final class ClaveProtegida {
-    private static final int ITERACIONES = 600_000;
+    private static final int ITERACIONES_PREDETERMINADAS = 600_000;
     private final byte[] sal;
     private final byte[] resumen;
+    private final int iteraciones;
 
     private ClaveProtegida(char[] clave) {
         sal = new byte[16];
         new SecureRandom().nextBytes(sal);
-        resumen = derivar(clave, sal);
+        iteraciones = ITERACIONES_PREDETERMINADAS;
+        resumen = derivar(clave, sal, iteraciones);
     }
+
+    private ClaveProtegida(byte[] sal, byte[] resumen, int iteraciones) {
+        this.sal = Arrays.copyOf(sal, sal.length);
+        this.resumen = Arrays.copyOf(resumen, resumen.length);
+        this.iteraciones = iteraciones;
+    }
+
+    /** Reconstruye desde persistencia; no expone la clave original. */
+    public static ClaveProtegida reconstruir(byte[] sal, byte[] resumen, int iteraciones) {
+        Validaciones.obligatorio(sal, "La sal");
+        Validaciones.obligatorio(resumen, "El resumen");
+        if (iteraciones <= 0) throw new ValidacionException("Las iteraciones deben ser positivas.");
+        return new ClaveProtegida(sal, resumen, iteraciones);
+    }
+
+    public byte[] obtenerSal() { return Arrays.copyOf(sal, sal.length); }
+    public byte[] obtenerResumen() { return Arrays.copyOf(resumen, resumen.length); }
+    public int obtenerIteraciones() { return iteraciones; }
 
     /** El llamador conserva la responsabilidad de limpiar el arreglo recibido. */
     public static ClaveProtegida crear(char[] clave) {
@@ -41,7 +61,7 @@ public final class ClaveProtegida {
         if (candidata == null || candidata.length < 8 || candidata.length > 128) {
             return false;
         }
-        byte[] resultado = derivar(candidata, sal);
+        byte[] resultado = derivar(candidata, sal, iteraciones);
         try {
             return MessageDigest.isEqual(resumen, resultado);
         } finally {
@@ -49,8 +69,8 @@ public final class ClaveProtegida {
         }
     }
 
-    private static byte[] derivar(char[] clave, byte[] sal) {
-        PBEKeySpec especificacion = new PBEKeySpec(clave, sal, ITERACIONES, 256);
+    private static byte[] derivar(char[] clave, byte[] sal, int iteraciones) {
+        PBEKeySpec especificacion = new PBEKeySpec(clave, sal, iteraciones, 256);
         try {
             return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
                     .generateSecret(especificacion).getEncoded();

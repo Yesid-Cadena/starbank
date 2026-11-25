@@ -15,6 +15,17 @@ public final class Validaciones {
         return monto;
     }
 
+    public static BigDecimal montoNoNegativo(BigDecimal monto) {
+        obligatorio(monto, "El monto");
+        if (monto.compareTo(BigDecimal.ZERO) < 0) {
+            throw new ValidacionException("El monto no puede ser negativo.");
+        }
+        if (monto.stripTrailingZeros().scale() > 2) {
+            throw new ValidacionException("El monto debe tener como máximo dos decimales.");
+        }
+        return monto;
+    }
+
     private Validaciones() {
     }
 

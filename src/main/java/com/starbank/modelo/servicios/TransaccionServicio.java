@@ -122,6 +122,11 @@ public final class TransaccionServicio {
         Validaciones.monto(monto);
         String detalle = Validaciones.texto(descripcion, "La descripción");
         return unidadTrabajo.ejecutar(() -> {
+            if (tipo == TipoTransaccion.TRANSFERENCIA) {
+                java.util.List<String> orden = new java.util.ArrayList<>(java.util.List.of(origen, destino));
+                java.util.Collections.sort(orden);
+                for (String n : orden) { cuentas.buscarPorNumero(n); }
+            }
             Cuenta cuentaPropia = cuentaServicio.consultarPropia(cliente, origen == null ? destino : origen);
             Cuenta cuentaOrigen = origen == null ? null : cuentaPropia;
             Cuenta cuentaDestino = destino == null ? null

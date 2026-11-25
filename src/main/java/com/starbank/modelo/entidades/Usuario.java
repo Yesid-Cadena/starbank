@@ -25,6 +25,17 @@ public abstract class Usuario {
         estado = EstadoUsuario.ACTIVO;
     }
 
+    protected Usuario(String identificacion, String nombre, String correo, String telefono,
+                      ClaveProtegida clave, LocalDateTime fechaRegistro, EstadoUsuario estado) {
+        this.identificacion = Validaciones.texto(identificacion, "La identificación");
+        this.nombre = Validaciones.texto(nombre, "El nombre");
+        this.correo = Validaciones.correo(correo);
+        this.telefono = Validaciones.telefono(telefono);
+        this.clave = Validaciones.obligatorio(clave, "La clave protegida");
+        this.fechaRegistro = Validaciones.obligatorio(fechaRegistro, "La fecha de registro");
+        this.estado = Validaciones.obligatorio(estado, "El estado del usuario");
+    }
+
     protected Usuario(Usuario original) {
         identificacion = original.identificacion;
         nombre = original.nombre;
@@ -71,4 +82,6 @@ public abstract class Usuario {
         }
         this.clave = ClaveProtegida.crear(claveNueva);
     }
+
+    public final ClaveProtegida obtenerClave() { return clave; }
 }
