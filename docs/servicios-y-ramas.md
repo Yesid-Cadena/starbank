@@ -117,5 +117,14 @@ Repositorio: https://github.com/Yesid-Cadena/starbank.git
 
 Crear cada rama futura desde `main` actualizado cuando su fase sea autorizada. Integrar
 mediante pull request con revisión y `./mvnw clean verify` satisfactorio. Las ramas futuras
-son propuestas: no contienen implementaciones adelantadas. Esta etapa inicia el historial
-Git local, pues no existía repositorio local y el remoto consultado no tenía referencias.
+son propuestas: no contienen implementaciones adelantadas.
+
+### Integración con el repositorio existente
+
+No existía repositorio Git local. La consulta HTTPS inicial no mostró referencias, pero
+el acceso SSH autenticado permitió recuperar `main`, con el commit `f8ca875` de estructura
+base (Java 17, paquetes `starbank.dominio` y `starbank.servicio` aún vacíos).
+Se integró ese historial en `feat/servicios-bancarios`, manteniendo Java 21, las convenciones
+`com.starbank` y el README breve de la implementación local. Se conservaron las exclusiones
+Git originales y `starbank.Main` como entrada compatible que delega en `com.starbank.Main`.
+El `main` remoto se conserva para integrar la rama mediante revisión; no se sobrescribe.
