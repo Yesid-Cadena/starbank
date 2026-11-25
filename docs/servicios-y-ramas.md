@@ -127,4 +127,5 @@ base (Java 17, paquetes `starbank.dominio` y `starbank.servicio` aún vacíos).
 Se integró ese historial en `feat/servicios-bancarios`, manteniendo Java 21, las convenciones
 `com.starbank` y el README breve de la implementación local. Se conservaron las exclusiones
 Git originales y `starbank.Main` como entrada compatible que delega en `com.starbank.Main`.
-El `main` remoto se conserva para integrar la rama mediante revisión; no se sobrescribe.
+Tras verificar compilación y pruebas, la rama se integra en `main` conservando el commit base.
+Al momento de la revisión, el remoto no contenía otras ramas ni aportes adicionales.
