@@ -65,4 +65,44 @@ class CuentaServicioTest extends BancoPrueba {
         assertThrows(OperacionRechazadaException.class, () -> servicioCuentas.consultarSaldo("002", origen));
         assertThrows(RegistroNoEncontradoException.class, () -> servicioCuentas.consultar("999"));
     }
+
+    @Test
+    void clienteAutenticadoPuedeAbrirCuentaPropia() {
+        var sesionCliente = iniciarSesion("ana@example.com");
+        Cuenta cuenta = servicioCuentas.abrirCuentaPropia(sesionCliente, TipoCuenta.CORRIENTE);
+        assertEquals("001", cuenta.obtenerCliente().obtenerIdentificacion());
+        assertEquals(0, cuenta.consultarSaldo().compareTo(BigDecimal.ZERO));
+        assertEquals(EstadoCuenta.ACTIVA, cuenta.obtenerEstado());
+        assertNotNull(cuenta.obtenerNumeroCuenta());
+    }
+
+    @Test
+    void clientePuedeAbrirMultiplesCuentasConNumerosUnicos() {
+        var sesionCliente = iniciarSesion("ana@example.com");
+        var numeros = new HashSet<String>();
+        numeros.add(origen);
+        for (int i = 0; i < 10; i++) {
+            Cuenta c = servicioCuentas.abrirCuentaPropia(sesionCliente, TipoCuenta.AHORROS);
+            assertTrue(numeros.add(c.obtenerNumeroCuenta()));
+            assertEquals("001", c.obtenerCliente().obtenerIdentificacion());
+        }
+    }
+
+    @Test
+    void rechazaAperturaParaTercerosOSesionInvalida() {
+        var sesionCliente = iniciarSesion("ana@example.com");
+        assertThrows(com.starbank.excepciones.AccesoDenegadoException.class,
+                () -> servicioCuentas.crear(sesionCliente, "002", TipoCuenta.AHORROS));
+        var ahora = java.time.LocalDateTime.now();
+        var sesionFalsa = new com.starbank.modelo.entidades.Sesion("00000000-0000-0000-0000-000000000099", "001", ahora, ahora, ahora.plusMinutes(30), true);
+        assertThrows(RuntimeException.class,
+                () -> servicioCuentas.abrirCuentaPropia(sesionFalsa, TipoCuenta.AHORROS));
+    }
+
+    @Test
+    void aperturaCuentaRegistraAuditoria() {
+        var sesionCliente = iniciarSesion("ana@example.com");
+        servicioCuentas.abrirCuentaPropia(sesionCliente, TipoCuenta.AHORROS);
+        assertTrue(repositorioActividad.listar().stream().anyMatch(a -> "CREACION_CUENTA".equals(a.obtenerTipoActividad()) && "001".equals(a.obtenerIdentificacionUsuario())));
+    }
 }
