@@ -71,7 +71,7 @@ public class VentanaPrincipal extends JFrame {
         RegistroControlador registroControlador = new RegistroControlador(config, panelRegistro, () -> cards.show(root, "login"));
         panelLogin.setControlador(loginControlador);
         panelRegistro.setControlador(registroControlador);
-        PanelPrincipalCliente cliente = new PanelPrincipalCliente(sesionControlador, this::volverLogin);
+        PanelPrincipalCliente cliente = new PanelPrincipalCliente(config, sesionControlador, this::volverLogin);
         PanelPrincipalAdmin admin = new PanelPrincipalAdmin(sesionControlador, this::volverLogin);
         root.add(panelLogin, "login");
         root.add(panelRegistro, "registro");
