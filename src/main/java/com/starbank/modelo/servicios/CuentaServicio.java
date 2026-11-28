@@ -40,9 +40,29 @@ public final class CuentaServicio {
     }
 
     public Cuenta crear(Sesion sesion, String identificacionCliente, TipoCuenta tipo) {
-        exigirAutorizacion().exigirAdministrador(sesion.obtenerIdentificador());
-        Cuenta cuenta = crear(identificacionCliente, tipo);
-        registrarAuditoria(sesion.obtenerIdentificacionUsuario(), "CREACION_CUENTA", "EXITOSO", "Cuenta creada.", cuenta.obtenerNumeroCuenta());
+        Usuario usuario = exigirAutorizacion().exigirUsuario(sesion.obtenerIdentificador());
+        String clienteObjetivo = Validaciones.texto(identificacionCliente, "La identificación del cliente");
+        if (usuario.obtenerRol() == Rol.CLIENTE) {
+            Cliente cliente = exigirAutorizacion().exigirCliente(sesion.obtenerIdentificador());
+            if (!cliente.obtenerIdentificacion().equals(clienteObjetivo)) {
+                throw new com.starbank.excepciones.AccesoDenegadoException("No puede abrir cuentas para otro cliente.");
+            }
+            clienteObjetivo = cliente.obtenerIdentificacion();
+        } else if (usuario.obtenerRol() == Rol.ADMINISTRADOR) {
+            exigirAutorizacion().exigirAdministrador(sesion.obtenerIdentificador());
+        } else {
+            throw new com.starbank.excepciones.AccesoDenegadoException("Acceso denegado.");
+        }
+        Cuenta cuenta = crear(clienteObjetivo, tipo);
+        registrarAuditoria(usuario.obtenerIdentificacion(), "CREACION_CUENTA", "EXITOSO", "Cuenta creada.", cuenta.obtenerNumeroCuenta());
+        return cuenta;
+    }
+
+    /** Apertura de cuenta propia por cliente autenticado. */
+    public Cuenta abrirCuentaPropia(Sesion sesion, TipoCuenta tipo) {
+        Cliente cliente = exigirAutorizacion().exigirCliente(sesion.obtenerIdentificador());
+        Cuenta cuenta = crear(cliente.obtenerIdentificacion(), tipo);
+        registrarAuditoria(cliente.obtenerIdentificacion(), "CREACION_CUENTA", "EXITOSO", "Cuenta creada por el cliente.", cuenta.obtenerNumeroCuenta());
         return cuenta;
     }
 

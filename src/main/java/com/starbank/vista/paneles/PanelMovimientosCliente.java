@@ -12,6 +12,8 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class PanelMovimientosCliente extends JPanel implements PanelPrincipalCliente.Refrescable {
     private final ConfiguracionServicios config; private final SesionControlador sesion;
@@ -38,7 +40,9 @@ public class PanelMovimientosCliente extends JPanel implements PanelPrincipalCli
         try {
             encabezado.setUsuario(sesion.usuarioActual().obtenerNombre());
             cuentas = config.obtenerCuentas().consultarPorCliente(sesion.getSesion());
-            cbCuenta.removeAllItems(); for (Cuenta c : cuentas) cbCuenta.addItem(c.obtenerNumeroCuenta());
+            cbCuenta.removeAllItems();
+            cbCuenta.addItem("Todas mis cuentas");
+            for (Cuenta c : cuentas) cbCuenta.addItem(c.obtenerNumeroCuenta() + " - " + c.obtenerTipoCuenta());
             if (cuentas.isEmpty()) { lista.removeAll(); lista.add(new EstadoVacio("Sin cuentas", "No hay cuentas para consultar movimientos.")); lista.revalidate(); lista.repaint(); }
             else cargar();
         } catch (Exception ex) { lista.removeAll(); lista.add(new EstadoVacio("Error", ex.getMessage())); lista.revalidate(); lista.repaint(); }
@@ -47,20 +51,37 @@ public class PanelMovimientosCliente extends JPanel implements PanelPrincipalCli
     private void cargar() {
         lista.removeAll();
         try {
-            if (cbCuenta.getSelectedIndex() < 0) return;
-            String numero = cuentas.get(cbCuenta.getSelectedIndex()).obtenerNumeroCuenta();
+            if (cuentas.isEmpty()) return;
             TipoTransaccion tipo = cbTipo.getSelectedIndex() <= 0 ? null : TipoTransaccion.valueOf((String) cbTipo.getSelectedItem());
-            List<Transaccion> movs = config.obtenerTransacciones().historialCuenta(sesion.getSesion(), numero, tipo, null, null);
+            List<Transaccion> movs;
+            String numeroSeleccionado = null;
+            if (cbCuenta.getSelectedIndex() <= 0) {
+                movs = config.obtenerTransacciones().historialCliente(sesion.getSesion(), tipo, null, null);
+            } else {
+                numeroSeleccionado = cuentas.get(cbCuenta.getSelectedIndex() - 1).obtenerNumeroCuenta();
+                movs = config.obtenerTransacciones().historialCuenta(sesion.getSesion(), numeroSeleccionado, tipo, null, null);
+            }
+            Set<String> propias = cuentas.stream().map(Cuenta::obtenerNumeroCuenta).collect(Collectors.toSet());
             if (movs.isEmpty()) lista.add(new EstadoVacio("Sin movimientos", "No se encontraron movimientos con los filtros seleccionados."));
             for (Transaccion t : movs) {
                 JPanel p = new JPanel(new BorderLayout()); p.setBackground(Color.WHITE);
                 p.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(Estilos.BORDE), new EmptyBorder(12,14,12,14)));
                 p.setMaximumSize(new Dimension(Integer.MAX_VALUE, 72)); p.setAlignmentX(Component.LEFT_ALIGNMENT);
-                boolean ingreso = numero.equals(t.obtenerCuentaDestino());
                 boolean rechazado = t.obtenerEstado() == EstadoTransaccion.RECHAZADA;
-                Color color = rechazado ? Estilos.ADVERTENCIA : (ingreso ? Estilos.EXITO : Estilos.ERROR);
-                String signo = rechazado ? "" : (ingreso ? "+" : "-");
-                JLabel izq = new JLabel("<html><b>" + t.obtenerTipo() + "</b> · " + t.obtenerEstado() + "<br><span style='color:#64748B'>" + UtilFormato.fecha(t.obtenerFechaHora()) + " · " + t.obtenerDescripcion() + "</span></html>");
+                boolean ingreso;
+                String etiqueta;
+                if (numeroSeleccionado != null) {
+                    ingreso = numeroSeleccionado.equals(t.obtenerCuentaDestino());
+                    etiqueta = t.obtenerTipo() + " · " + t.obtenerEstado();
+                } else {
+                    boolean origenPropia = t.obtenerCuentaOrigen() != null && propias.contains(t.obtenerCuentaOrigen());
+                    boolean destinoPropia = t.obtenerCuentaDestino() != null && propias.contains(t.obtenerCuentaDestino());
+                    if (origenPropia && destinoPropia) { ingreso = false; etiqueta = t.obtenerTipo() + " interna · " + t.obtenerEstado(); }
+                    else { ingreso = destinoPropia; etiqueta = t.obtenerTipo() + " · " + t.obtenerEstado(); }
+                }
+                Color color = rechazado ? Estilos.ADVERTENCIA : (etiqueta.contains("interna") ? Estilos.AZUL_ACCION : (ingreso ? Estilos.EXITO : Estilos.ERROR));
+                String signo = rechazado || etiqueta.contains("interna") ? "" : (ingreso ? "+" : "-");
+                JLabel izq = new JLabel("<html><b>" + etiqueta + "</b><br><span style='color:#64748B'>" + UtilFormato.fecha(t.obtenerFechaHora()) + " · " + t.obtenerDescripcion() + "</span></html>");
                 JLabel der = new JLabel(signo + UtilFormato.moneda(t.obtenerMonto()));
                 der.setFont(Estilos.FUENTE_NORMAL.deriveFont(Font.BOLD)); der.setForeground(color);
                 p.add(izq, BorderLayout.CENTER); p.add(der, BorderLayout.EAST);

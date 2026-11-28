@@ -21,6 +21,7 @@ public class PanelInicioCliente extends JPanel implements PanelPrincipalCliente.
     private final EncabezadoModulo encabezado = new EncabezadoModulo("Inicio", "Resumen de tu actividad financiera");
     private final JPanel cuerpo = new JPanel();
     private boolean saldoVisible = true;
+    private int cuentaSeleccionada = 0;
 
     public PanelInicioCliente(ConfiguracionServicios config, SesionControlador sesion, Consumer<String> navegar) {
         this.config = config; this.sesion = sesion; this.navegar = navegar;
@@ -39,7 +40,7 @@ public class PanelInicioCliente extends JPanel implements PanelPrincipalCliente.
             var cliente = sesion.usuarioActual();
             encabezado.setUsuario(cliente.obtenerNombre());
             List<Cuenta> cuentas = config.obtenerCuentas().consultarPorCliente(s);
-            BigDecimal total = cuentas.stream().map(Cuenta::consultarSaldo).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal total = cuentas.stream().filter(c -> c.obtenerEstado().name().equals("ACTIVA")).map(Cuenta::consultarSaldo).reduce(BigDecimal.ZERO, BigDecimal::add);
             long activas = cuentas.stream().filter(c -> c.obtenerEstado().name().equals("ACTIVA")).count();
 
             JLabel saludo = new JLabel("Hola, " + cliente.obtenerNombre());
@@ -52,9 +53,25 @@ public class PanelInicioCliente extends JPanel implements PanelPrincipalCliente.
             cuerpo.add(stats); cuerpo.add(Box.createVerticalStrut(18));
 
             if (cuentas.isEmpty()) {
-                cuerpo.add(new EstadoVacio("Aún no tienes cuentas bancarias", "Necesitas una cuenta bancaria habilitada para comenzar a operar. Contacta a un administrador."));
+                JPanel vacio = new JPanel(); vacio.setOpaque(false); vacio.setLayout(new BoxLayout(vacio, BoxLayout.Y_AXIS)); vacio.setAlignmentX(Component.LEFT_ALIGNMENT);
+                vacio.add(new EstadoVacio("Bienvenido a StarBank", "Aún no tienes cuentas bancarias habilitadas. Abre tu primera cuenta para comenzar."));
+                BotonPrimario abrir = new BotonPrimario("+ Abrir mi primera cuenta"); abrir.setAlignmentX(Component.CENTER_ALIGNMENT); abrir.addActionListener(e -> navegar.accept("cuentas"));
+                JPanel wrapBtn = new JPanel(new FlowLayout(FlowLayout.CENTER)); wrapBtn.setOpaque(false); wrapBtn.add(abrir); wrapBtn.setAlignmentX(Component.LEFT_ALIGNMENT); wrapBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 60));
+                vacio.add(Box.createVerticalStrut(8)); vacio.add(wrapBtn);
+                cuerpo.add(vacio);
             } else {
-                Cuenta cuenta = cuentas.get(0);
+                if (cuentaSeleccionada >= cuentas.size()) cuentaSeleccionada = 0;
+                if (cuentas.size() > 1) {
+                    JPanel sel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0)); sel.setOpaque(false); sel.setAlignmentX(Component.LEFT_ALIGNMENT);
+                    sel.add(new JLabel("Cuenta:"));
+                    JComboBox<String> cb = new JComboBox<>();
+                    for (Cuenta c : cuentas) cb.addItem(c.obtenerTipoCuenta() + " - " + UtilFormato.cuentaOculta(c.obtenerNumeroCuenta()));
+                    cb.setSelectedIndex(cuentaSeleccionada);
+                    cb.addActionListener(e -> { cuentaSeleccionada = cb.getSelectedIndex(); refrescar(); });
+                    sel.add(cb);
+                    cuerpo.add(sel); cuerpo.add(Box.createVerticalStrut(12));
+                }
+                Cuenta cuenta = cuentas.get(cuentaSeleccionada);
                 cuerpo.add(tarjetaCuenta(cuenta));
                 cuerpo.add(Box.createVerticalStrut(18));
 
