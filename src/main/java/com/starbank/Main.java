@@ -4,6 +4,8 @@ import com.starbank.configuracion.ConexionPostgres;
 import com.starbank.configuracion.ConfiguracionMemoria;
 import com.starbank.configuracion.ConfiguracionPostgres;
 import com.starbank.configuracion.ConfiguracionServicios;
+import com.starbank.vista.estilos.Estilos;
+import com.starbank.vista.ventanas.VentanaPrincipal;
 import com.starbank.excepciones.AccesoDenegadoException;
 import com.starbank.excepciones.AutenticacionException;
 import com.starbank.excepciones.SesionInvalidaException;
@@ -28,7 +30,24 @@ public final class Main {
         boolean initDb = argumentos.contains("--init-db");
         boolean crearAdmin = argumentos.contains("--crear-admin");
         boolean menu = argumentos.contains("--menu");
-        boolean demo = argumentos.contains("--demo") || (!postgres && !initDb && !crearAdmin && !menu);
+        boolean gui = argumentos.contains("--gui");
+        boolean demo = argumentos.contains("--demo") || (!postgres && !initDb && !crearAdmin && !menu && !gui);
+
+        if (gui) {
+            Estilos.aplicarTema();
+            if (postgres) {
+                javax.swing.SwingUtilities.invokeLater(() -> new VentanaPrincipal(() -> {
+                    ConexionPostgres cp = ConexionPostgres.desdeEntorno();
+                    ConfiguracionPostgres cfg = new ConfiguracionPostgres(cp);
+                    if (initDb) cfg.inicializarEsquema();
+                    cfg.verificarConexion();
+                    return cfg;
+                }).iniciar());
+            } else {
+                javax.swing.SwingUtilities.invokeLater(() -> new VentanaPrincipal(ConfiguracionMemoria::new).iniciar());
+            }
+            return;
+        }
 
         if (postgres) {
             ConfiguracionPostgres config = crearConfiguracionPostgres();
@@ -42,7 +61,7 @@ public final class Main {
             if (menu) {
                 ejecutarMenuSimple(config);
             } else if (demo) {
-                System.out.println("Modo PostgreSQL: no se insertan datos ficticios automáticamente. Use --menu, --init-db o --crear-admin.");
+                System.out.println("Modo PostgreSQL: no se insertan datos ficticios automáticamente. Use --menu, --gui, --init-db o --crear-admin.");
             }
             return;
         }
